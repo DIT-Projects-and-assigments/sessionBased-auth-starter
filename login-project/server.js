@@ -53,6 +53,31 @@ app.use( session(
     }
 ))
 
+//personal middleware
+const redirectLogin = (req, res, next) =>
+{
+    if(!req.session.userId)
+    {
+        res.redirect('/login')
+    }
+    else
+    {
+        next()
+    }
+}
+  
+const redirectHome = (req, res, next) =>
+{
+    if(req.session.userId)
+    {
+        res.redirect('/home')
+    }
+    else
+    {
+        next()
+    }
+}
+
 //routes for the application
 app.get('/', (req, res)=>
 {
@@ -133,7 +158,7 @@ app.post('/logout', redirectLogin, (req, res) =>
 
 
 //login route
-app.get('/login', (req,res)=>{
+app.get('/login',redirectHome ,(req,res)=>{
     res.send(`
     <h1>Login</h1>
     <form method='post' action='/login'>
@@ -180,6 +205,37 @@ app.post('/login', async(req, res, next) =>
     {
         console.log(e)
     }
+})
+
+//home route
+app.get('/home',redirectLogin,  async(req,res)=>
+{
+    const {userId} =req.session
+    if(userId)
+    {
+        try
+        {
+            const user = await db.getUser(userId);
+            console.log(user)
+            req.user = user;
+            res.send(`
+            <h1>Home</h1>
+            <a href='/'>Main</a>
+            <ul>
+            <li> Name: ${user[0].first_name} </li>
+            <li> Email:${user[0].email} </li>
+            </ul>
+        
+            `)
+         
+        } 
+        catch(e) 
+        {
+            console.log(e);
+            res.sendStatus(404);
+        }
+    }
+    
 })
 
 
