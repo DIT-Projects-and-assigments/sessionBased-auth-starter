@@ -172,35 +172,36 @@ app.get('/login',redirectHome ,(req,res)=>{
 
 app.post('/login', async(req, res, next) =>
 {
-    try
-    {
+    
+    try{ 
         const email = req.body.email;
         let password = req.body.password;
         user = await db.getUserByEmail(email);
-
-        if(!user)
-        {
-           return res.send({message: "invalid email"})
+            
+        if(!user){
+            return res.send({
+                message: "Invalid email"
+            })
         }
-
-        //start validation
-        const isValidPassword = compareSync(password, user.password)
-        if(isValidPassword)
-        {
+        
+        const isValidPassword = compareSync(password, user.password);
+        if(isValidPassword){
             user.password = undefined;
-            user.session.userId = user.Id;
-            return res.redirect('/home')
-        }
-        else
-        {
-            res.send("invalid email or password!")
+            req.session.userId = user.id
+            return res.redirect('/home');
+        }  else{
+                res.send(
+                    "Invalid email or password"
+            );
             return res.redirect('/login')
-        }
+        } 
+        
+    }
         // if(user.password !== password)
         // {
         //   return  res.send({message: "Invalid password!"})
         // }
-    }
+    
     catch(e)
     {
         console.log(e)
@@ -210,7 +211,7 @@ app.post('/login', async(req, res, next) =>
 //home route
 app.get('/home',redirectLogin,  async(req,res)=>
 {
-    const {userId} =req.session
+    const {userId} = req.session
     if(userId)
     {
         try
