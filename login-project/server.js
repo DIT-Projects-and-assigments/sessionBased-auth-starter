@@ -1,11 +1,11 @@
 const exp = require('constants');
 const express = require('express')
 const session = require('express-session');
-const mysqlStore = require('express-mysql-session')(session); 
+const mysqlStore = require('express-mysql-session')(session);
 const mysql = require('mysql')
 const cors = require('cors')
 const db = require('./db')
-const {hashSync, genSaltSync, compareSync} = require('bcrypt')
+const { hashSync, genSaltSync, compareSync } = require('bcrypt')
 //require("dotenv").config();
 
 /*
@@ -14,14 +14,14 @@ const salt = genSaltSync(10);
 const password = hashSync(password, salt)
 const isValidPassword = compareSync(password, obj.password)
 */
-const connection = 
-{   
+const connection =
+{
     connectionLimit: 10,
-    host:"localhost",
-    user :"root",
-    password:"1234",
-    port:3306,
-    database:"loginProject",
+    host: "localhost",
+    user: "root",
+    password: "1234",
+    port: 3306,
+    database: "loginProject",
     createDatabaseTable: true
 }
 
@@ -35,10 +35,10 @@ const sessionStore = new mysqlStore(connection, pool)
 const app = express();
 
 app.use(express.json())
-app.use(express.urlencoded({extended: true}))
+app.use(express.urlencoded({ extended: true }))
 app.use(cors());
 
-app.use( session(
+app.use(session(
     {
         name: "sampleSession",
         resave: "false",
@@ -48,45 +48,39 @@ app.use( session(
         cookie: {
             maxAge: 1000 * 60 * 60, //I hr
             sameSite: true,
-            secure: false
+            secure: false,
+            httpOnly: false
         }
     }
 ))
 
 //personal middleware
-const redirectLogin = (req, res, next) =>
-{
-    if(!req.session.userId)
-    {
+const redirectLogin = (req, res, next) => {
+    if (!req.session.userId) {
         res.redirect('/login')
     }
-    else
-    {
+    else {
         next()
     }
 }
-  
-const redirectHome = (req, res, next) =>
-{
-    if(req.session.userId)
-    {
+
+const redirectHome = (req, res, next) => {
+    if (req.session.userId) {
         res.redirect('/home')
     }
-    else
-    {
+    else {
         next()
     }
 }
 
 //routes for the application
-app.get('/', (req, res)=>
-{
+app.get('/', (req, res) => {
     const { userId } = req.session
-    console.log(userId);
+    // console.log(userId.session_id); error failed to read undefined
     res.send(`
     <h1> Welcome!</h1>
     </br>
-    ${userId ?`<a href = '/home'> Home </a>
+    ${userId ? `<a href = '/home'> Home </a>
     <form method='post' action='/logout'>
     <button>Logout</button>
     </form>` : `<button style="width:80px"><a href = '/login'> Login </a></button>
@@ -97,7 +91,7 @@ app.get('/', (req, res)=>
 })
 
 //get another route
-app.get('/register', (req,res)=>{
+app.get('/register', (req, res) => {
     res.send(`
     <h1>Register</h1>
     <form method='post' action='/Register'>
@@ -114,51 +108,46 @@ app.get('/register', (req,res)=>{
 
 //register the user
 
-app.post('/register',  async (req, res, next)=>{
-    try{
+app.post('/register', async (req, res, next) => {
+    try {
         const firstName = req.body.firstName;
         const lastName = req.body.lastName;
         const email = req.body.email;
         let password = req.body.password;
- 
- 
-        if (!firstName || !lastName || !email || !password) 
-        {
+
+
+        if (!firstName || !lastName || !email || !password) {
             return res.sendStatus(400);
         }
- 
-            const salt = genSaltSync(10);
-            password = hashSync(password, salt)
- 
-        const user =  await db.insertUser(firstName, lastName, email, password).then(insertId=>{return db.getUser(insertId);});
+
+        const salt = genSaltSync(10);
+        //password = hashSync(password, salt) //prevent hashing password
+
+        const user = await db.insertUser(firstName, lastName, email, password).then(insertId => { return db.getUser(insertId); });
         req.session.userId = user.id
-            //res.flash("Already registered!.. Back to log in soon.")
-            return res.redirect('/login') 
- 
-    } catch(e)
-    {    
+        //res.flash("Already registered!.. Back to log in soon.")
+        return res.redirect('/login')
+
+    } catch (e) {
         console.log(e);
         res.sendStatus(400);
     }
 });
 
-app.post('/logout', redirectLogin, (req, res) =>
-{
-    req.session.destroy( err =>
-        {
-            if(err)
-            {
-                return res.redirect('/home')
-            }
-            sessionStore.close()
-            res.clearCookie("sampleSession")
-            res.redirect('/login')
-        })
+app.post('/logout', redirectLogin, (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.redirect('/home')
+        }
+        sessionStore.close()
+        res.clearCookie("sampleSession")
+        res.redirect('/login')
+    })
 })
 
 
 //login route
-app.get('/login',redirectHome ,(req,res)=>{
+app.get('/login', redirectHome, (req, res) => {
     res.send(`
     <h1>Login</h1>
     <form method='post' action='/login'>
@@ -170,52 +159,59 @@ app.get('/login',redirectHome ,(req,res)=>{
     `)
 })
 
-app.post('/login', async(req, res, next) =>
-{
-    
-    try{ 
+app.post('/login', async (req, res, next) => {
+
+    try {
+
         const email = req.body.email;
         let password = req.body.password;
         user = await db.getUserByEmail(email);
-            
-        if(!user){
+
+        if (!user) {
             return res.send({
                 message: "Invalid email"
             })
         }
-        
+
+        if(user.password !== password){
+            return res.send({
+                message: "Invalid  password"
+            })
+         
+        }
+             
+        req.session.userId = user.id
+        return res.redirect('/home');
+         
+        /*
         const isValidPassword = compareSync(password, user.password);
-        if(isValidPassword){
+        if(isValidPassword)
+        {
             user.password = undefined;
             req.session.userId = user.id
             return res.redirect('/home');
-        }  else{
-                res.send(
-                    "Invalid email or password"
-            );
-            return res.redirect('/login')
+        }  
+        else
+        {
+        return res.send("Invalid email or password");
+            //return res.redirect('/login')
         } 
         
+        */
+        //another option based on comparing
+
+        
     }
-        // if(user.password !== password)
-        // {
-        //   return  res.send({message: "Invalid password!"})
-        // }
-    
-    catch(e)
-    {
+    catch (e) {
         console.log(e)
     }
 })
 
 //home route
-app.get('/home',redirectLogin,  async(req,res)=>
-{
-    const {userId} = req.session
-    if(userId)
-    {
-        try
-        {
+app.get('/home', async (req, res) => {
+    const { userId } = req.session
+    if (userId) {
+        try {
             const user = await db.getUser(userId);
             console.log(user)
             req.user = user;
@@ -228,26 +224,23 @@ app.get('/home',redirectLogin,  async(req,res)=>
             </ul>
         
             `)
-         
-        } 
-        catch(e) 
-        {
+
+        }
+        catch (e) {
             console.log(e);
             res.sendStatus(404);
         }
     }
-    
+
 })
 
 
 app.listen(3000, (err) => {
-    if(err)
-    {
+    if (err) {
         console.log(err)
 
     }
-    else
-    {
+    else {
         console.log(`App listening at ${3000}`)
     }
 })
