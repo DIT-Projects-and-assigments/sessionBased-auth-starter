@@ -5,7 +5,8 @@ const mysqlStore = require('express-mysql-session')(session);
 const mysql = require('mysql')
 const cors = require('cors')
 const db = require('./db')
-const { hashSync, genSaltSync, compareSync } = require('bcrypt')
+const { hashSync, genSaltSync, compareSync } = require('bcrypt');
+const { error } = require('console');
 //require("dotenv").config();
 
 /*
@@ -73,8 +74,15 @@ const redirectHome = (req, res, next) => {
     }
 }
 
-//routes for the application
+//initial routes for the application
+
 app.get('/', (req, res) => {
+    console.log(req.session)
+    if(req.session.viewCount){
+        req.session.viewCount = req.session.viewCount++
+
+        console.log(`you visited this page ${req.session.viewCount} times.`)
+    }
     const { userId } = req.session
     // console.log(userId.session_id); error failed to read undefined
     res.send(`
@@ -90,7 +98,9 @@ app.get('/', (req, res) => {
         `)
 })
 
-//get another route
+
+//get register route
+
 app.get('/register', (req, res) => {
     res.send(`
     <h1>Register</h1>
@@ -106,46 +116,6 @@ app.get('/register', (req, res) => {
     `)
 })
 
-//register the user
-
-app.post('/register', async (req, res, next) => {
-    try {
-        const firstName = req.body.firstName;
-        const lastName = req.body.lastName;
-        const email = req.body.email;
-        let password = req.body.password;
-
-
-        if (!firstName || !lastName || !email || !password) {
-            return res.sendStatus(400);
-        }
-
-        const salt = genSaltSync(10);
-        //password = hashSync(password, salt) //prevent hashing password
-
-        const user = await db.insertUser(firstName, lastName, email, password).then(insertId => { return db.getUser(insertId); });
-        req.session.userId = user.id
-        //res.flash("Already registered!.. Back to log in soon.")
-        return res.redirect('/login')
-
-    } catch (e) {
-        console.log(e);
-        res.sendStatus(400);
-    }
-});
-
-app.post('/logout', redirectLogin, (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-            return res.redirect('/home')
-        }
-        sessionStore.close()
-        res.clearCookie("sampleSession")
-        res.redirect('/login')
-    })
-})
-
-
 //login route
 app.get('/login', redirectHome, (req, res) => {
     res.send(`
@@ -158,6 +128,77 @@ app.get('/login', redirectHome, (req, res) => {
     <button style="width:80px" ><a href='/register'>Register</a></button>
     `)
 })
+
+
+//home route
+app.get('/home', async (req, res) => {
+    const { userId } = req.session
+    if (userId) {
+        try {
+            const user = await db.getUser(userId);
+            console.log(user)
+            req.user = user;
+            res.send(`
+            <h1>Home</h1>
+            <a href='/'>Main</a>
+            <ul>
+            <li> Name: ${user[0].first_name} </li>
+            <li> Email:${user[0].email} </li>
+            </ul>
+        
+            `)
+
+        }
+        catch (e) {
+            console.log(e);
+            res.sendStatus(404);
+        }
+    }
+
+})
+
+
+//register the user to the database
+
+app.post('/register', async (req, res, next) => {
+
+    const myPromise = new Promise((resolve, reject) => {
+        const firstName = req.body.firstName;
+        const lastName = req.body.lastName;
+        const email = req.body.email;
+        let password = req.body.password;
+
+        if (!firstName || !lastName || !email || !password) {
+            //return res.sendStatus(400);
+            reject("Fill all requiesties!")
+        }
+
+        const salt = genSaltSync(10);
+        //password = hashSync(password, salt) //prevent hashing password
+
+        const user = db.insertUser(firstName, lastName, email, password).then(insertId => { return db.getUser(insertId); });
+        req.session.userId = user.id
+        resolve(req.session.userId)
+        
+    })
+    .then((value) =>
+    {
+        console.log(value)
+        //res.flash("Already registered!.. Back to log in soon.") depending on flash package
+        res.redirect('/login')
+
+    })
+    .catch((err) =>
+    {
+        console.log(err.message)
+        res.sendStatus(400);
+    })
+   
+});
+
+
+
+
 
 app.post('/login', async (req, res, next) => {
 
@@ -207,31 +248,19 @@ app.post('/login', async (req, res, next) => {
     }
 })
 
-//home route
-app.get('/home', async (req, res) => {
-    const { userId } = req.session
-    if (userId) {
-        try {
-            const user = await db.getUser(userId);
-            console.log(user)
-            req.user = user;
-            res.send(`
-            <h1>Home</h1>
-            <a href='/'>Main</a>
-            <ul>
-            <li> Name: ${user[0].first_name} </li>
-            <li> Email:${user[0].email} </li>
-            </ul>
-        
-            `)
 
-        }
-        catch (e) {
-            console.log(e);
-            res.sendStatus(404);
-        }
-    }
 
+//logout route
+
+app.post('/logout', redirectLogin, (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.redirect('/home')
+        }
+        sessionStore.close()
+        res.clearCookie("sampleSession")
+        res.redirect('/login')
+    })
 })
 
 
