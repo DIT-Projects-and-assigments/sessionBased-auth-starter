@@ -9,7 +9,9 @@ const User = db.getUser();
  */
 
 // TODO
-router.post('/login', passport.authenticate('local'), (req, res, next) => { });
+router.post('/login', passport.authenticate('local', {failureRedirect: '/login-failure', successRedirect: '/login-success'}), (req, res, next) => { 
+console.log(req.user)
+});
 
 // TODO
 router.post('/register', (req, res, next) => {
@@ -93,16 +95,20 @@ router.get('/protected-route', (req, res, next) => {
 
 // Visiting this route logs the user out
 router.get('/logout', (req, res, next) => {
-    req.logout();
-    res.redirect('/protected-route');
+    req.logout(() =>
+    {
+        res.redirect('/protected-route');
+    });
+ 
 });
 
 router.get('/login-success', (req, res, next) => {
     res.send('<p>You successfully logged in. --> <a href="/protected-route">Go to protected route</a></p>');
+    next()
 });
 
 router.get('/login-failure', (req, res, next) => {
-    res.send('You entered the wrong password.');
+    res.send('You entered the wrong password or username');
 });
 
 module.exports = router;                   
