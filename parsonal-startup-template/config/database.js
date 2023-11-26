@@ -75,4 +75,19 @@ db.insertUser = (username, hash, salt) =>
     })
 }
 
+db.insertAdmin = (username, hash, salt) => 
+{
+    return new Promise((resolve, reject) =>
+    {
+        pool.query("INSERT INTO User (username, hash, salt, isAdmin) VALUES (?, ?, ?, ?)", [username, hash, salt, true], (error, result)=>
+        {
+            if(error)
+            {
+                return reject(error)
+            }
+            return resolve(result)
+        })
+    })
+}
+
 module.exports = db;

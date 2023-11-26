@@ -2,7 +2,10 @@ const router = require('express').Router();
 const passport = require('passport');
 const { genPassword } = require('../lib/passwordUtils');
 const db = require('../config/database');
+const { isAuth, isAdmin } = require('./authMiddleware');
 const User = db.getUser();
+const isAuthUser = require('./authMiddleware').isAuthUser;
+const isAdminUser = require('./authMiddleware').isAdmin
 
 /**
  * -------------- POST ROUTES ----------------
@@ -21,27 +24,46 @@ router.post('/register', (req, res, next) => {
     const salt = saltHash.salt;
     const hash = saltHash.hash;
 
-
-    db.insertUser(req.body.username, hash,salt)
-    .then((result) =>
+    //if is admin
+    if(req.body.isAdmin)
     {
-        console.log(result)
-        let insertedUser = {
-            username: req.body.username,
-            hash: hash,
-            salt: salt
-        }
-
-        console.log(insertedUser);
+        db.insertAdmin(req.body.username, hash, salt)
         
-        res.redirect('/login');
-
-    })
-    .catch((err) =>
+        .then((result) =>
+        {
+            console.log("Admin Inserted successfuly")
+            res.redirect('/login')
+        })
+        .catch((err) =>
+        {
+            console.log("There was an error occured during insertation...")
+        })
+    }
+    else
     {
-        console.log(err)
-        res.send(`Ooooooops! encoutered the error ${err.message}. User with the same username already exist. `);
-    })
+        db.insertUser(req.body.username, hash,salt)
+        .then((result) =>
+        {
+            console.log(result)
+            let insertedUser = {
+                username: req.body.username,
+                hash: hash,
+                salt: salt
+            }
+
+            console.log(insertedUser);
+            
+            res.redirect('/login');
+
+        })
+        .catch((err) =>
+        {
+            console.log(err)
+            res.send(`Ooooooops! encoutered the error ${err.message}. User with the same username already exist. `);
+        })
+    }
+
+    
 });
 
 
@@ -71,7 +93,9 @@ router.get('/register', (req, res, next) => {
     const form = '<h1>Register Page</h1><form method="post" action="register">\
                     Enter Username:<br><input type="text" name="username">\
                     <br>Enter Password:<br><input type="password" name="password">\
-                    <br><br><input type="submit" value="Submit"></form>';
+                    <br><br><input type="submit" value="Submit"> \
+                    <input type="checkbox" name="isAdmin">\
+                    <br></form>';
 
     res.send(form);
 
@@ -83,14 +107,20 @@ router.get('/register', (req, res, next) => {
  * 
  * Also, look up what behaviour express session has without a maxage set
  */
-router.get('/protected-route', (req, res, next) => {
+router.get('/protected-route',isAuthUser ,(req, res, next) => {
 
     // This is how you check if a user is authenticated and protect a route.  You could turn this into a custom middleware to make it less redundant
-    if (req.isAuthenticated()) {
-        res.send('<h1>You are authenticated</h1><p><a href="/logout">Logout and reload</a></p>');
-    } else {
-        res.send('<h1>You are not authenticated</h1><p><a href="/login">Login</a></p>');
-    }
+   res.send(`you made it to the route dear ${req.user.username}. Feel free to navigate out.\
+   Here is the link to Admin raute. <a href="admin-raute">Go to admin raute</a>`)
+});
+ 
+/*
+* admin route
+*/
+router.get('/admin-raute',isAdminUser ,(req, res, next) => {
+
+    // This is how you check if a user is authenticated and protect a route.  You could turn this into a custom middleware to make it less redundant
+   res.send(`you made it to the Admin route dear ${req.user.username}. Feel free to navigate your admin rights.`)
 });
 
 // Visiting this route logs the user out
