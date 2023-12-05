@@ -77,11 +77,13 @@ const redirectHome = (req, res, next) => {
 //initial routes for the application
 
 app.get('/', (req, res) => {
-    console.log(req.session)
+   // console.log(req.session) trying using view count than log it to the console.
     if(req.session.viewCount){
-        req.session.viewCount = req.session.viewCount++
+        req.session.viewCount = req.session.viewCount + 1 ;
+    }
 
-        console.log(`you visited this page ${req.session.viewCount} times.`)
+    else{
+        req.session.viewCount = 1;
     }
     const { userId } = req.session
     // console.log(userId.session_id); error failed to read undefined
@@ -93,7 +95,8 @@ app.get('/', (req, res) => {
     <button>Logout</button>
     </form>` : `<button style="width:80px"><a href = '/login'> Login </a></button>
     <button style="width:80px" ><a href = '/register'> Register </a></button>
-    
+    <br>
+    you visited this page ${req.session.viewCount} times.
     `}
         `)
 })
